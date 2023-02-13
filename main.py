@@ -68,6 +68,7 @@ app.layout = html.Div([
             ]),
             html.Span("Columnas para graficar"),
             dcc.Dropdown(id="multiple-dynamic-dropdown", multi=True),
+            html.Div(id='df-info')
         ],
             style={'width': '20%', 'borderWidth': '1px',
                    'borderStyle': 'dashed',
@@ -100,6 +101,19 @@ def update_figure(df, col):
 
 
 @app.callback(
+        Output('df-info','children'),
+        Input('dynamic-dropdown','value')
+)
+def update_df_info(col_name):
+    result = []
+    result.append("Información de la columna '{}':\n".format(col_name))
+    result.append("Tipo de datos: {}\n".format(Data.df[col_name].dtype))
+    result.append("Porcentaje de datos nulos: {:.2f}%\n".format((Data.df[col_name].isnull().sum() / Data.df.shape[0]) * 100))
+    result.append("Columna vacía: {}".format("Sí" if Data.df[col_name].isnull().sum() == Data.df.shape[0] else "No"))
+    return [ html.Div(val) for val in result]
+
+
+@app.callback(
     Output('graphics', 'children'),
     [Input('multiple-dynamic-dropdown', 'value')]
 )
@@ -126,7 +140,7 @@ def update_output(contents):
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
 
-    Data.df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+    Data.df = pd.read_csv(io.StringIO(decoded.decode('utf-8')),delimiter=";")
     return (html.Div([
         html.H4(
             f'Tabla con los datos del archivo CSV subido ({Data.df.shape[0]} filas)'),
