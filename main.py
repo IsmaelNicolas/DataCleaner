@@ -5,10 +5,19 @@ import dash
 from dash.dependencies import Input, Output, State
 from dash import dcc, html, dash_table
 import dash_bootstrap_components as dbc
+import plotly.express as px
+import plotly.graph_objs as go
 
 import pandas as pd
 
-df: pd.DataFrame
+
+class Data():
+    df = pd.DataFrame({})
+
+    def __init__(self) -> None:
+        pass
+
+
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = html.Div([
@@ -36,16 +45,72 @@ app.layout = html.Div([
                 "margin-top": "10vh"
             }),
             dcc.Dropdown(id="dynamic-dropdown"),
-            html.Span("Columnas para graficar"),
-            dcc.Dropdown(id="multiple-dynamic-dropdown", multi=True)
+            html.Div([
+                dbc.Button("Eliminar filas o columnas vacías",
+                           color="primary", className="mb-2 mt-2"),
+                dbc.DropdownMenu(
+                    label="Remplazar usando",
+                    children=[
+                        dbc.DropdownMenuItem("Media"),
+                        dbc.DropdownMenuItem("Moda"),
+                        dbc.DropdownMenuItem("Mediana"),
+                    ],
+                ),
+                dbc.InputGroup(
+                    [
 
+                        dbc.Input(id="input-group-button-input",
+                                  placeholder="Remplazar usando"),
+                        dbc.Button("Remplazar",
+                                   id="input-group-button", n_clicks=0),
+                    ], className="mb-2 mt-2"
+                )
+            ]),
+            html.Span("Columnas para graficar"),
+            dcc.Dropdown(id="multiple-dynamic-dropdown", multi=True),
         ],
             style={'width': '20%', 'borderWidth': '1px',
                    'borderStyle': 'dashed',
                    'borderRadius': '5px', 'margin': '10px'}, body=True,),
+
         html.Div([html.Div(id='table-container')], style={'width': '80%'})
-    ], style={'display': 'flex'})
+    ], style={'display': 'flex'}),
+    html.Div(id='graphics')
 ])
+
+
+def update_figure(df, col):
+    if len(df.columns) == 1:
+        fig = px.histogram(df)
+    elif len(df.columns) == 2:
+        if (df.dtypes[0] == 'object' and df.dtypes[1] == 'object'):
+            fig = px.count_cat(df, x=df.columns[0], y=df.columns[1])
+        elif (df.dtypes[0] == 'object' or df.dtypes[1] == 'object'):
+            if df.dtypes[0] == 'object':
+                fig = px.histogram(
+                    df, x=df.columns[0], y=df.columns[1], color=df.columns[0])
+            else:
+                fig = px.histogram(
+                    df, x=df.columns[1], y=df.columns[0], color=df.columns[1])
+        else:
+            fig = px.scatter(df, x=df.columns[0], y=df.columns[1])
+    else:
+        fig = px.scatter_matrix(df)
+    return fig
+
+
+@app.callback(
+    Output('graphics', 'children'),
+    [Input('multiple-dynamic-dropdown', 'value')]
+)
+def uodate_col(col):
+    if len(col) == 0:
+        print(col)
+        return go.Figure()
+    columns_to_plot = col
+    df_plot = Data.df[columns_to_plot]
+    fig = update_figure(df_plot, col)
+    return dcc.Graph(figure=fig)
 
 
 @app.callback(
@@ -61,13 +126,13 @@ def update_output(contents):
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
 
-    df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+    Data.df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
     return (html.Div([
         html.H4(
-            f'Tabla con los datos del archivo CSV subido ({df.shape[0]} filas)'),
+            f'Tabla con los datos del archivo CSV subido ({Data.df.shape[0]} filas)'),
         dash_table.DataTable(
-            data=df.to_dict('records'),
-            columns=[{'name': col, 'id': col} for col in df.columns],
+            data=Data.df.to_dict('records'),
+            columns=[{'name': col, 'id': col} for col in Data.df.columns],
             fixed_rows={'headers': True},
             sort_action="native",
             sort_mode='multi',
@@ -79,7 +144,7 @@ def update_output(contents):
             export_headers='display',
             style_table={}
         )
-    ]), list(df.columns), list(df.columns)
+    ]), list(Data.df.columns), list(Data.df.columns)
     )
 
 
