@@ -4,11 +4,12 @@ import io
 import dash
 from dash.dependencies import Input, Output, State
 from dash import dcc, html, dash_table
+import dash_bootstrap_components as dbc
 
 import pandas as pd
 
 df: pd.DataFrame
-app = dash.Dash(__name__)
+app = dash.Dash(__name__,external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = html.Div([
     dcc.Upload(
@@ -30,29 +31,31 @@ app.layout = html.Div([
         multiple=False
     ),
     html.Div([
-        html.Div([
-            dcc.Input(
-                id="input",
-                type="text",
-                placeholder="input type text",
-            ),
-            dcc.Dropdown(id="dynamic-dropdown")
+         dbc.Card([
+            html.Span("Columna a limpiar",style={
+                "margin-top":"10vh"
+            }),
+            dcc.Dropdown(id="dynamic-dropdown"),
+            html.Span("Columnas para graficar"),
+            dcc.Dropdown(id="multiple-dynamic-dropdown",multi=True)
 
-        ], style={'width': '20%', 'borderWidth': '1px',
+        ], className="ml-20", style={'width': '20%', 'borderWidth': '1px',
                   'borderStyle': 'dashed',
-                  'borderRadius': '5px', }),
+                  'borderRadius': '5px', }, body=True,),
         html.Div([html.Div(id='table-container')], style={'width': '80%'})
     ], style={'display': 'flex'})
 ])
 
 
 @app.callback(
-    (Output('table-container', 'children'), Output('dynamic-dropdown', 'options')),
+    (Output('table-container', 'children'), 
+     Output('dynamic-dropdown', 'options'),
+     Output('multiple-dynamic-dropdown','options')),
     [Input('upload-data', 'contents')]
 )
 def update_output(contents):
     if contents is None:
-        return (html.Div([]), [])
+        return (html.Div([]), [],[])
 
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
@@ -75,7 +78,7 @@ def update_output(contents):
             export_headers='display',
             style_table={}
         )
-    ]), list(df.columns)
+    ]), list(df.columns),list(df.columns)
     )
 
 
